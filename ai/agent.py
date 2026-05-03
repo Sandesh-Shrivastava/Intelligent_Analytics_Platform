@@ -14,12 +14,14 @@ import os
 import sys
 from pathlib import Path
 
-from groq import Groq
+from langchain_groq import ChatGroq
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 from dotenv import load_dotenv
 
 load_dotenv()
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from ai.text_to_sql import generate_sql, get_groq_client
+from ai.text_to_sql import generate_sql
 from ai.rag_pipeline import get_vector_store, rag_query, generate_insights, build_vector_store
 from notebooks.athena_helper import query
 
@@ -39,18 +41,21 @@ Respond with ONLY one word: SQL or RAG
 
 
 def route_question(question: str) -> str:
-    """Decide whether to use SQL or RAG."""
-    client   = get_groq_client()
-    response = client.chat.completions.create(
+    """Decide whether to use SQL or RAG via LangChain."""
+    llm = ChatGroq(
         model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "system", "content": ROUTER_PROMPT},
-            {"role": "user",   "content": question}
-        ],
         temperature=0,
         max_tokens=10,
     )
-    route = response.choices[0].message.content.strip().upper()
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", ROUTER_PROMPT),
+        ("user", "{question}"),
+    ])
+
+    chain = prompt | llm | StrOutputParser()
+
+    route = chain.invoke({"question": question}).strip().upper()
     return "SQL" if "SQL" in route else "RAG"
 
 

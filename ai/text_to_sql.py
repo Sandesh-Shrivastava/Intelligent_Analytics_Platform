@@ -11,7 +11,9 @@ import os
 import sys
 from pathlib import Path
 
-from groq import Groq
+from langchain_groq import ChatGroq
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -60,28 +62,23 @@ Rules:
 """
 
 
-def get_groq_client() -> Groq:
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
-        raise EnvironmentError("GROQ_API_KEY not found in .env")
-    return Groq(api_key=api_key)
-
-
 def generate_sql(question: str) -> str:
-    """Convert natural language question to SQL using Llama."""
-    client = get_groq_client()
-
-    response = client.chat.completions.create(
+    """Convert natural language question to SQL using Llama via LangChain."""
+    llm = ChatGroq(
         model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "system", "content": SCHEMA_CONTEXT},
-            {"role": "user",   "content": f"Question: {question}"}
-        ],
         temperature=0,
         max_tokens=500,
     )
 
-    sql = response.choices[0].message.content.strip()
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", SCHEMA_CONTEXT),
+        ("user", "Question: {question}"),
+    ])
+
+    # LCEL Chain
+    chain = prompt | llm | StrOutputParser()
+
+    sql = chain.invoke({"question": question})
 
     # clean up any accidental markdown
     sql = sql.replace("```sql", "").replace("```", "").strip()

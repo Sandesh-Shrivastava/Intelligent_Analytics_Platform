@@ -13,7 +13,13 @@ import sys
 from pathlib import Path
 
 import chromadb
-from groq import Groq
+from langchain_groq import ChatGroq
+from langchain_chroma import Chroma
+from langchain_core.embeddings import Embeddings
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
+import hashlib
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -21,6 +27,24 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from notebooks.athena_helper import query
 
 CHROMA_DIR = "ai/chroma_db"
+
+
+# ── Custom Embeddings ─────────────────────────────────────────────────────────
+
+class SimpleHashEmbeddings(Embeddings):
+    """Simple hash-based embedding — no model download needed."""
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [self._embed(text) for text in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._embed(text)
+
+    def _embed(self, text: str) -> list[float]:
+        vec = []
+        for i in range(64):
+            h = int(hashlib.md5(f"{text}{i}".encode()).hexdigest(), 16)
+            vec.append((h % 10000) / 10000.0)
+        return vec
 
 
 # ── Generate insights from Athena ─────────────────────────────────────────────
@@ -139,90 +163,73 @@ def generate_insights() -> list[dict]:
 
 # ── Build vector store ────────────────────────────────────────────────────────
 
-def simple_embed(texts: list[str]) -> list[list[float]]:
-    """Simple hash-based embedding — no model download needed."""
-    import hashlib
-    embeddings = []
-    for text in texts:
-        vec = []
-        for i in range(64):
-            h = int(hashlib.md5(f"{text}{i}".encode()).hexdigest(), 16)
-            vec.append((h % 10000) / 10000.0)
-        embeddings.append(vec)
-    return embeddings
+def build_vector_store(insights: list[dict]) -> Chroma:
+    """Store insights in ChromaDB using LangChain and simple embeddings."""
+    embeddings = SimpleHashEmbeddings()
 
+    # Clear existing if any
+    if os.path.exists(CHROMA_DIR):
+        import shutil
+        shutil.rmtree(CHROMA_DIR)
 
-def build_vector_store(insights: list[dict]) -> chromadb.Collection:
-    """Store insights in ChromaDB using simple embeddings."""
-    client = chromadb.PersistentClient(path=CHROMA_DIR)
-
-    try:
-        client.delete_collection("insights")
-    except Exception:
-        pass
-
-    collection = client.create_collection(
-        "insights",
-        metadata={"hnsw:space": "cosine"}
-    )
-
-    texts      = [i["text"] for i in insights]
-    embeddings = simple_embed(texts)
-
-    collection.add(
-        ids        = [i["id"] for i in insights],
-        documents  = texts,
-        embeddings = embeddings,
+    vectorstore = Chroma.from_texts(
+        texts=[i["text"] for i in insights],
+        metadatas=[{"id": i["id"]} for i in insights],
+        embedding=embeddings,
+        persist_directory=CHROMA_DIR,
+        collection_name="insights"
     )
 
     print(f"  Stored {len(insights)} documents in ChromaDB")
-    return collection
+    return vectorstore
 
 
-def get_vector_store() -> chromadb.Collection:
-    """Load existing ChromaDB collection."""
-    client = chromadb.PersistentClient(path=CHROMA_DIR)
-    return client.get_collection(
-        "insights",
+def get_vector_store() -> Chroma:
+    """Load existing ChromaDB collection via LangChain."""
+    return Chroma(
+        persist_directory=CHROMA_DIR,
+        embedding_function=SimpleHashEmbeddings(),
+        collection_name="insights"
     )
 
 
 # ── RAG Query ─────────────────────────────────────────────────────────────────
 
-def rag_query(question: str, collection: chromadb.Collection) -> str:
-    """Retrieve relevant context and answer using Llama."""
+def rag_query(question: str, vectorstore: Chroma) -> str:
+    """Retrieve relevant context and answer using Llama via LangChain."""
 
-    # retrieve top 3 relevant documents using simple embeddings
-    query_embedding = simple_embed([question])[0]
-    results = collection.query(
-        query_embeddings=[query_embedding],
-        n_results=3,
-    )
-    context = "\n\n".join(results["documents"][0])
-
-    # generate answer with Llama
-    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-
-    response = client.chat.completions.create(
+    llm = ChatGroq(
         model="llama-3.3-70b-versatile",
-        messages=[
-            {
-                "role": "system",
-                "content": """You are a helpful business analyst assistant.
-                Answer questions based on the provided data context.
-                Be concise, specific, and use numbers from the context.
-                If the answer is not in the context, say so."""
-            },
-            {
-                "role": "user",
-                "content": f"Context:\n{context}\n\nQuestion: {question}"
-            }
-        ],
         temperature=0.1,
         max_tokens=500,
     )
 
-    return response.choices[0].message.content.strip()
+    template = """You are a helpful business analyst assistant.
+    Answer questions based on the provided data context.
+    Be concise, specific, and use numbers from the context.
+    If the answer is not in the context, say so.
+
+    Context:
+    {context}
+
+    Question: {question}
+    """
+    prompt = ChatPromptTemplate.from_template(template)
+
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+
+    def format_docs(docs):
+        return "\n\n".join(doc.page_content for doc in docs)
+
+    # LCEL RAG Chain
+    rag_chain = (
+        {"context": retriever | format_docs, "question": RunnablePassthrough()}
+        | prompt
+        | llm
+        | StrOutputParser()
+    )
+
+    return rag_chain.invoke(question)
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
