@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  analytics-platform:
+    build: .
+    container_name: intelligent-analytics-platform
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    restart: always
+    volumes:
+      - .:/app
+    environment:
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0

@@ -74,12 +74,41 @@ ATHENA_RESULTS_BUCKET='s3://your-athena-results-bucket'
 GROQ_API_KEY='your_groq_key'
 ```
 
-### 3. Run the Dashboard
+### 3. Run the Dashboard Locally
 Once your environment is set up and your AWS infrastructure contains the necessary data, you can launch the platform locally:
 ```bash
 streamlit run dashboard/app.py
 ```
 The dashboard will be available in your browser at `http://localhost:8501`.
+
+---
+
+## ☁️ Deployment (AWS EC2)
+
+To deploy this platform on a professional AWS EC2 instance, follow these steps:
+
+### 1. Launch an EC2 Instance
+*   Use an **Amazon Linux 2023** or **Ubuntu** AMI.
+*   Instance type: `t3.medium` (recommended) or higher.
+*   **Security Group**: Ensure port `8501` is open for your IP or `0.0.0.0/0`.
+
+### 2. Setup & Deploy
+Once connected to your EC2 via SSH, run:
+```bash
+# Clone the repository
+git clone https://github.com/Sandesh-Shrivastava/Intelligent_Analytics_Platform.git
+cd Intelligent_Analytics_Platform
+
+# Create your .env file
+cp .env.example .env
+nano .env  # Add your AWS and Groq keys
+
+# Run the deployment script
+chmod +x scripts/deploy_ec2.sh
+./scripts/deploy_ec2.sh
+```
+
+The app will be live at `http://your-ec2-public-ip:8501`.
 
 ---
 
