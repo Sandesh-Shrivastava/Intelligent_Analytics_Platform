@@ -19,7 +19,7 @@ The Intelligent Analytics Platform takes raw e-commerce data (using the Brazilia
 ### ✨ Key Features & Frontend Architecture
 1. **Custom Borderless Streamlit UI:** A heavily customized, edge-to-edge responsive dashboard. Streamlit's native sidebar was strategically removed and the layout overridden via advanced CSS to create a seamless, highly immersive HD interface.
 2. **Fluid Typography & Glassmorphism:** Implements dynamic viewport width (`vw`) typography, allowing the platform's headers to mathematically scale edge-to-edge across any ultra-wide monitor. Features custom transparent "ghost" buttons and floating, borderless tabs.
-3. **Interactive Data Pipeline Visualization:** A visually stunning, horizontal architecture flow diagram (`Fake Data → AWS S3 → dbt → XGBoost → Llama 3`) built directly into the main Overview tab UI.
+3. **Interactive Data Pipeline Visualization:** A visually stunning, horizontal architecture flow diagram (`Fake Data → AWS S3 → dbt → XGBoost → Llama 3.3`) built directly into the main Overview tab UI.
 4. **Live Business Operations:** Displays active revenue trends, top category volume, and geographical sales modeling pulling directly from AWS Athena.
 5. **Machine Learning Insights:**
    * **Churn Prediction:** An XGBoost classification model predicting which customers are at risk of leaving, explained via SHAP values.
