@@ -17,7 +17,7 @@ warnings.filterwarnings("ignore")
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from notebooks.athena_helper import query
 from dashboard.theme import get_theme
-from ai.text_to_sql import generate_sql, get_groq_client
+from ai.text_to_sql import generate_sql
 from ai.rag_pipeline import (
     generate_insights, build_vector_store,
     get_vector_store, rag_query
