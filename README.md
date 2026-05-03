@@ -25,9 +25,9 @@ The Intelligent Analytics Platform takes raw e-commerce data (using the Brazilia
    * **Churn Prediction:** An XGBoost classification model predicting which customers are at risk of leaving, explained via SHAP values.
    * **Customer Lifetime Value (CLV):** An XGBoost regression model predicting the future monetary value of customer segments.
    * **Product Recommender:** A collaborative filtering system suggesting untried product categories to existing customers.
-3. **Generative AI Assistant ("Ask AI"):**
-   * **Text-to-SQL:** Ask hard data questions (e.g., *"How many orders last month?"*) and the Llama 3 LLM will generate and execute an AWS Athena SQL query on the fly.
-   * **RAG (Retrieval-Augmented Generation):** Ask business context questions (e.g., *"Why are we losing customers?"*) and the AI will search a local ChromaDB vector database to provide summarized insights.
+6. **Generative AI Assistant ("Ask AI"):**
+   * **Text-to-SQL (LangChain LCEL):** Ask hard data questions (e.g., *"How many orders last month?"*) and the Llama 3.3 LLM will generate and execute an AWS Athena SQL query using a declarative LangChain chain.
+   * **RAG (Retrieval-Augmented Generation):** Ask business context questions using a custom `SimpleHashEmbeddings` pipeline and ChromaDB to search for summarized insights.
 
 ---
 
@@ -38,8 +38,8 @@ This project follows a modern data stack architecture:
 1. **Ingestion (`/ingestion`):** Raw CSV data is uploaded to **AWS S3** and registered as external tables in **AWS Athena** using the `boto3` library.
 2. **Transformation (`/dbt_project`):** **dbt (Data Build Tool)** is used to clean, model, and aggregate the raw Athena tables into optimized Data Marts (Fact and Dimension tables).
 3. **Machine Learning (`/ml`):** Advanced feature engineering is performed on the dbt Marts to train XGBoost models. Experiments and metrics are tracked locally using **MLflow**.
-4. **Artificial Intelligence (`/ai`):** A custom Python router directing user queries to either a Groq-powered LLM (for Text-to-SQL) or a HuggingFace/ChromaDB pipeline (for RAG).
-5. **Presentation (`/dashboard`):** Everything is pulled together in an interactive **Streamlit** frontend optimized with `@st.cache_data` for blazing-fast Athena querying.
+4. **Artificial Intelligence (`/ai`):** Powered by **LangChain**, utilizing **LCEL (LangChain Expression Language)** for modular AI orchestration. Uses **Llama 3.3 70B** on Groq for ultra-fast LPU inference, featuring a custom `SimpleHashEmbeddings` class for model-free vector retrieval.
+5. **Presentation (`/dashboard`):** A premium **Streamlit** dashboard featuring glassmorphism design, cached Athena querying, and interactive Plotly visualizations.
 
 ---
 
@@ -47,8 +47,8 @@ This project follows a modern data stack architecture:
 
 * **Cloud & Data Pipeline:** AWS S3, AWS Athena, dbt-athena-community, boto3, pyathena.
 * **Machine Learning:** XGBoost, Scikit-Learn, SHAP, MLflow.
-* **Generative AI:** Groq API (Llama 3.3 70B), ChromaDB (Vector DB).
-* **Frontend:** Streamlit, Plotly Express.
+* **Generative AI:** LangChain (LCEL), Groq API (Llama 3.3 70B), ChromaDB (Vector DB).
+* **Frontend:** Streamlit (Glassmorphism), Plotly Express.
 
 ---
 
